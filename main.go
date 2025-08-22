@@ -26,9 +26,18 @@ func handlerServerStatus(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *apiConfig) handlerShowPageViews(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	count := fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())
+
+	html := `
+<html>
+  <body>
+    <h1>Welcome, Chirpy Admin</h1>
+    <p>Chirpy has been visited %d times!</p>
+  </body>
+</html>`
+
+	count := fmt.Sprintf(html, cfg.fileserverHits.Load())
 	w.Write([]byte(count))
 }
 
@@ -50,9 +59,9 @@ func main() {
 		"/app/",
 		conf.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(fileRoot)))),
 	)
-	mux.HandleFunc("GET /metrics", conf.handlerShowPageViews)
-	mux.HandleFunc("POST /reset", conf.handlerResetPageViews)
-	mux.HandleFunc("GET /healthz", handlerServerStatus)
+	mux.HandleFunc("GET /admin/metrics", conf.handlerShowPageViews)
+	mux.HandleFunc("POST /admin/reset", conf.handlerResetPageViews)
+	mux.HandleFunc("GET /api/healthz", handlerServerStatus)
 
 	server := &http.Server{
 		Addr:    ":" + "8080",
