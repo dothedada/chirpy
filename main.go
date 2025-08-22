@@ -50,9 +50,9 @@ func main() {
 		"/app/",
 		conf.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(fileRoot)))),
 	)
-	mux.HandleFunc("/metrics", conf.handlerShowPageViews)
-	mux.HandleFunc("/reset", conf.handlerResetPageViews)
-	mux.HandleFunc("/healthz", handlerServerStatus)
+	mux.HandleFunc("GET /metrics", conf.handlerShowPageViews)
+	mux.HandleFunc("POST /reset", conf.handlerResetPageViews)
+	mux.HandleFunc("GET /healthz", handlerServerStatus)
 
 	server := &http.Server{
 		Addr:    ":" + "8080",
