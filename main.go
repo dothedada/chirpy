@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -17,6 +20,86 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, req)
 	})
+}
+
+type reqError struct {
+	status int
+	error  error
+}
+
+func isValidRequest(req *http.Request) reqError {
+	if !strings.HasPrefix(req.Header.Get("Content-Type"), "application/json") {
+		return reqError{
+			status: http.StatusBadRequest,
+			error:  errors.New("Something went wrong"),
+		}
+	}
+
+	type body struct {
+		Text string `json:"body"`
+	}
+	var reqBody body
+	defer req.Body.Close()
+
+	decoder := json.NewDecoder(req.Body)
+	err := decoder.Decode(&reqBody)
+	if err != nil {
+		return reqError{
+			status: http.StatusBadRequest,
+			error:  errors.New("Something went wrong"),
+		}
+	}
+
+	if len(reqBody.Text) > 140 {
+		return reqError{
+			status: http.StatusBadRequest,
+			error:  errors.New("Chirp is too long"),
+		}
+	}
+
+	return reqError{}
+}
+
+func handlerChirpValidation(w http.ResponseWriter, req *http.Request) {
+	type resError struct {
+		Error string `json:"error"`
+	}
+	type resBody struct {
+		Valid bool `json:"valid"`
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	isValid := isValidRequest(req)
+	if isValid.error != nil {
+		errMsg := resError{
+			Error: isValid.error.Error(),
+		}
+
+		errBytes, err := json.Marshal(errMsg)
+		if err != nil {
+			log.Printf("Error marshaling JSON response %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(isValid.status)
+		w.Write(errBytes)
+		return
+	}
+
+	resMsg := resBody{
+		Valid: true,
+	}
+	resBytes, err := json.Marshal(resMsg)
+	if err != nil {
+		log.Printf("Error marshaling JSON response %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(resBytes)
 }
 
 func handlerServerStatus(w http.ResponseWriter, req *http.Request) {
@@ -62,6 +145,7 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", conf.handlerShowPageViews)
 	mux.HandleFunc("POST /admin/reset", conf.handlerResetPageViews)
 	mux.HandleFunc("GET /api/healthz", handlerServerStatus)
+	mux.HandleFunc("POST /api/validate_chirp", handlerChirpValidation)
 
 	server := &http.Server{
 		Addr:    ":" + "8080",
