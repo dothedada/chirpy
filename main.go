@@ -11,6 +11,12 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 }
 
+var BAD_WORDS = []string{
+	"kerfuffle",
+	"sharbert",
+	"fornax",
+}
+
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		cfg.fileserverHits.Add(1)
@@ -20,13 +26,14 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 }
 
 func handlerChirpValidation(w http.ResponseWriter, req *http.Request) {
-	isValid := isValidRequest(req)
+	text, isValid := isValidRequest(req)
 	if isValid.error != nil {
 		resWithErr(w, isValid)
 		return
 	}
 
-	resJson(w, http.StatusOK, resValid{Valid: true})
+	cleanMsg := profanityCleaner(text, BAD_WORDS)
+	resJson(w, http.StatusOK, resValid{CleanedBody: cleanMsg})
 }
 
 func handlerServerStatus(w http.ResponseWriter, req *http.Request) {

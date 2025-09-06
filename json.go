@@ -10,7 +10,7 @@ type resError struct {
 	Error string `json:"error"`
 }
 type resValid struct {
-	Valid bool `json:"valid"`
+	CleanedBody string `json:"cleaned_body"`
 }
 
 func resWithErr(w http.ResponseWriter, err reqError) {

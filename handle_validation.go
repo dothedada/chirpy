@@ -12,34 +12,55 @@ type reqError struct {
 	error  error
 }
 
-func isValidRequest(req *http.Request) reqError {
+type reqBody struct {
+	Text string `json:"body"`
+}
+
+func isValidRequest(req *http.Request) (string, reqError) {
 	defer req.Body.Close()
 
 	if !strings.HasPrefix(req.Header.Get("Content-Type"), "application/json") {
-		return reqError{
+		return "", reqError{
 			status: http.StatusBadRequest,
 			error:  errors.New("Something went wrong"),
 		}
 	}
 
-	var reqBody struct {
-		Text string `json:"body"`
-	}
+	var body reqBody
 	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&reqBody)
+	err := decoder.Decode(&body)
 	if err != nil {
-		return reqError{
+		return "", reqError{
 			status: http.StatusBadRequest,
 			error:  errors.New("Something went wrong"),
 		}
 	}
 
-	if len(reqBody.Text) > 140 {
-		return reqError{
+	if len(body.Text) > 140 {
+		return "", reqError{
 			status: http.StatusBadRequest,
 			error:  errors.New("Chirp is too long"),
 		}
 	}
 
-	return reqError{}
+	return body.Text, reqError{}
+}
+
+func profanityCleaner(msg string, badWords []string) string {
+	words := strings.Split(msg, " ")
+	cleanMsg := []string{}
+
+	for _, word := range words {
+		cleanWord := word
+		for _, badWord := range badWords {
+			if strings.EqualFold(word, badWord) {
+				cleanWord = "****"
+				break
+			}
+		}
+
+		cleanMsg = append(cleanMsg, cleanWord)
+	}
+
+	return strings.Join(cleanMsg, " ")
 }
