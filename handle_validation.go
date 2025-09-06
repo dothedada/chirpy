@@ -13,6 +13,8 @@ type reqError struct {
 }
 
 func isValidRequest(req *http.Request) reqError {
+	defer req.Body.Close()
+
 	if !strings.HasPrefix(req.Header.Get("Content-Type"), "application/json") {
 		return reqError{
 			status: http.StatusBadRequest,
@@ -20,12 +22,9 @@ func isValidRequest(req *http.Request) reqError {
 		}
 	}
 
-	type body struct {
+	var reqBody struct {
 		Text string `json:"body"`
 	}
-	var reqBody body
-	defer req.Body.Close()
-
 	decoder := json.NewDecoder(req.Body)
 	err := decoder.Decode(&reqBody)
 	if err != nil {

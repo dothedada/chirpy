@@ -1,12 +1,9 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"sync/atomic"
 )
 
@@ -23,45 +20,13 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 }
 
 func handlerChirpValidation(w http.ResponseWriter, req *http.Request) {
-	type resError struct {
-		Error string `json:"error"`
-	}
-	type resBody struct {
-		Valid bool `json:"valid"`
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
 	isValid := isValidRequest(req)
 	if isValid.error != nil {
-		errMsg := resError{
-			Error: isValid.error.Error(),
-		}
-
-		errBytes, err := json.Marshal(errMsg)
-		if err != nil {
-			log.Printf("Error marshaling JSON response %s", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(isValid.status)
-		w.Write(errBytes)
+		resWithErr(w, isValid)
 		return
 	}
 
-	resMsg := resBody{
-		Valid: true,
-	}
-	resBytes, err := json.Marshal(resMsg)
-	if err != nil {
-		log.Printf("Error marshaling JSON response %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(resBytes)
+	resJson(w, http.StatusOK, resValid{Valid: true})
 }
 
 func handlerServerStatus(w http.ResponseWriter, req *http.Request) {
