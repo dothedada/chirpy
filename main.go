@@ -1,14 +1,21 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync/atomic"
+
+	"github.com/dothedada/chirpy/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	dbQueries      *database.Queries
 }
 
 var BAD_WORDS = []string{
@@ -65,10 +72,19 @@ func (cfg *apiConfig) handlerResetPageViews(w http.ResponseWriter, req *http.Req
 }
 
 func main() {
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Cannot connect to DB: %s", err)
+	}
+
 	const port = "8080"
 	const fileRoot = "."
 
-	var conf apiConfig
+	conf := apiConfig{
+		dbQueries: database.New(db),
+	}
 	conf.fileserverHits.Store(0)
 
 	mux := http.NewServeMux()
